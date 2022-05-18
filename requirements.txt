@@ -2,3 +2,6 @@ torch~=1.11.0
 pytorch-fast-transformers==0.4.0
 numpy==1.22.3
 scikit-image~=0.19.2
+torchvision~=0.12.0
+wandb~=0.12.16
+tqdm~=4.64.0
