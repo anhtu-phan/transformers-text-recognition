@@ -2,10 +2,11 @@ import torch
 import torchvision
 import torch.nn as nn
 import os
-# import wandb
+import wandb
 from tqdm import tqdm
 import string
 from transformer import Encoder, Decoder, Seq2Seq
+from loss import cal_performance
 from optim import SchedulerOptim
 from load_image_data import get_data
 
@@ -19,17 +20,60 @@ def initialize_weights(m):
         nn.init.xavier_uniform_(m.weight.data)
 
 
-def train(model, feature_model, data_loader, optimizer, trg_pad_idx, device):
+def train(model, feature_model, data_loader, optimizer, device):
     model.train()
-    epoch_loss, epoch_acc = 0, 0
+    epoch_loss, epoch_total_word, epoch_n_word_correct = 0, 0, 0
     for batch_idx, (inputs, targets) in enumerate(data_loader):
         inputs = inputs.to(device)
         targets = targets.to(device)
 
+        optimizer.zero_grad()
+
         feature = feature_model(inputs).type(torch.LongTensor)
         feature *= feature
-        output = model(feature, targets)
-        print(output)
+        output, _ = model(feature, targets)
+        output_dim = output.shape[-1]
+        output = output.contiguous().view(-1, output_dim)
+        targets = targets.contiguous().view(-1)
+
+        loss, n_correct, n_word = cal_performance(output, targets, 0, True, 0.1)
+        loss.backward()
+        optimizer.step()
+
+        epoch_loss += loss.item()
+        epoch_total_word += n_word
+        epoch_n_word_correct += n_correct
+
+    loss_per_word = epoch_loss/epoch_total_word
+    acc = epoch_n_word_correct/epoch_total_word
+
+    return epoch_loss / len(data_loader), loss_per_word, acc
+
+
+def evaluate(model, feature_model, data_loader, device):
+    model.eval()
+    epoch_loss, epoch_total_word, epoch_n_word_correct = 0, 0, 0
+    with torch.no_grad():
+        for batch_idx, (inputs, targets) in enumerate(data_loader):
+            inputs = inputs.to(device)
+            targets = targets.to(device)
+
+            feature = feature_model(inputs).type(torch.LongTensor)
+            feature *= feature
+            output, _ = model(feature, targets)
+            output_dim = output.shape[-1]
+            output = output.contiguous().view(-1, output_dim)
+            targets = targets.contiguous().view(-1)
+
+            loss, n_correct, n_word = cal_performance(output, targets, 0, True, 0.1)
+            epoch_loss += loss.item()
+            epoch_total_word += n_word
+            epoch_n_word_correct += n_correct
+
+    loss_per_word = epoch_loss / epoch_total_word
+    acc = epoch_n_word_correct / epoch_total_word
+
+    return epoch_loss / len(data_loader), loss_per_word, acc
 
 
 def main():
@@ -48,7 +92,7 @@ def main():
     wandb_name = 'transformer-with-init'
     saved_model_dir = './checkpoints/'
     saved_model_path = saved_model_dir + model_name
-    best_valid_acc = float('inf')
+    best_valid_acc = float('inf')*-1
     saved_epoch = 0
 
     if not os.path.exists(saved_model_dir):
@@ -60,16 +104,16 @@ def main():
         saved_epoch = last_checkpoint['epoch']
         _model.load_state_dict(last_checkpoint['state_dict'])
         CONFIG['LEARNING_RATE'] = last_checkpoint['lr']
-        # wandb.init(name=wandb_name, project="multi-domain-machine-translation", config=CONFIG,
-        #            resume=True)
+        wandb.init(name=wandb_name, project="transformer-text-recognition", config=CONFIG,
+                   resume=True)
     else:
         _model.apply(initialize_weights)
-        # wandb.init(name=wandb_name, project="multi-domain-machine-translation", config=CONFIG,
-        #            resume=False)
+        wandb.init(name=wandb_name, project="multi-domain-machine-translation", config=CONFIG,
+                   resume=False)
 
     _optimizer = SchedulerOptim(torch.optim.Adam(_model.parameters(), lr=CONFIG['LEARNING_RATE'], betas=(0.9, 0.98),
                                                  weight_decay=0.0001), 1, CONFIG['HID_DIM'], 4000, 5e-4, saved_epoch)
-    # wandb.watch(_model, log='all')
+    wandb.watch(_model, log='all')
 
     train_loader, val_loader = get_data(CONFIG['BATCH_SIZE'], CONFIG['OUTPUT_LEN'])
 
@@ -78,7 +122,27 @@ def main():
 
         train_lr = _optimizer.optimizer.param_groups[0]['lr']
         logs['train_lr'] = train_lr
-        train(_model, _feature_model, train_loader, _optimizer, 0, device)
+        train_loss, train_loss_per_word, train_acc = train(_model, _feature_model, train_loader, _optimizer, device)
+        val_loss, val_loss_per_word, val_acc = evaluate(_model, _feature_model, val_loader, device)
+
+        logs['train_loss'] = train_loss
+        logs['val_loss'] = val_loss
+        logs['train_acc'] = train_acc
+        logs['val_acc'] = val_acc
+        logs['train_loss_per_word'] = train_loss_per_word
+        logs['val_loss_per_word'] = val_loss_per_word
+
+        if val_acc > best_valid_acc:
+            best_valid_acc = val_acc
+            checkpoint = {
+                'epoch': epoch+1,
+                'state_dict': _model.state_dict(),
+                'best_valid_acc': best_valid_acc,
+                'lr': train_lr,
+            }
+            torch.save(checkpoint, saved_model_path)
+
+        wandb.log(logs, step=epoch)
 
 
 if __name__ == '__main__':

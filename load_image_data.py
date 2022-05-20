@@ -45,7 +45,7 @@ class ImageDataset(Dataset):
             target += [0]*(self.max_out_len-len(target))
         else:
             target = target[:self.max_out_len]
-        target = torch.tensor(target, dtype=torch.int)
+        target = torch.tensor(target, dtype=torch.int64)
         if self.transform:
             image = self.transform(image)
         return image, target
