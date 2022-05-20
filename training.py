@@ -4,6 +4,7 @@ import torch.nn as nn
 import os
 # import wandb
 from tqdm import tqdm
+import string
 from transformer import Encoder, Decoder, Seq2Seq
 from optim import SchedulerOptim
 from load_image_data import get_data
@@ -23,18 +24,23 @@ def train(model, feature_model, data_loader, optimizer, trg_pad_idx, device):
     epoch_loss, epoch_acc = 0, 0
     for batch_idx, (inputs, targets) in enumerate(data_loader):
         inputs = inputs.to(device)
-        # targets = targets.to(device)
+        targets = targets.to(device)
 
-        feature = feature_model(inputs).features[-1]
-        output = model(inputs, targets)
+        feature = feature_model(inputs).type(torch.LongTensor)
+        feature *= feature
+        output = model(feature, targets)
+        print(output)
 
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    enc = Encoder(CONFIG['IMG_INPUT_HEIGHT']*CONFIG['IMG_INPUT_WIDTH'], CONFIG['HID_DIM'], CONFIG['ENC_LAYERS'],
-                  CONFIG['ENC_HEADS'], CONFIG['ENC_PF_DIM'], CONFIG['ENC_DROPOUT'], device)
-    dec = Decoder(CONFIG['OUTPUT_LEN'], CONFIG['HID_DIM'], CONFIG['DEC_LAYERS'], CONFIG['DEC_HEADS'],
-                  CONFIG['DEC_PF_DIM'], CONFIG['DEC_DROPOUT'], device)
+    _feature_model = torchvision.models.vgg16_bn(pretrained=True).to(device)
+
+    enc = Encoder(_feature_model.classifier[-1].out_features, CONFIG['HID_DIM'], CONFIG['ENC_LAYERS'],
+                  CONFIG['ENC_HEADS'], CONFIG['ENC_PF_DIM'], CONFIG['ENC_DROPOUT'], device,
+                  _feature_model.classifier[-1].out_features)
+    dec = Decoder(len(string.printable)+1, CONFIG['HID_DIM'], CONFIG['DEC_LAYERS'], CONFIG['DEC_HEADS'],
+                  CONFIG['DEC_PF_DIM'], CONFIG['DEC_DROPOUT'], device, CONFIG['OUTPUT_LEN'])
     _model = Seq2Seq(enc, dec, -1, -1, device).to(device)
 
     print(f"{'-' * 10}number of parameters = {count_parameters(_model)}{'-' * 10}\n")
@@ -63,24 +69,21 @@ def main():
 
     _optimizer = SchedulerOptim(torch.optim.Adam(_model.parameters(), lr=CONFIG['LEARNING_RATE'], betas=(0.9, 0.98),
                                                  weight_decay=0.0001), 1, CONFIG['HID_DIM'], 4000, 5e-4, saved_epoch)
-    _feature_model = torchvision.models.vgg16_bn(pretrained=True)
     # wandb.watch(_model, log='all')
 
-    train_loader, val_loader = get_data(CONFIG['BATCH_SIZE'])
+    train_loader, val_loader = get_data(CONFIG['BATCH_SIZE'], CONFIG['OUTPUT_LEN'])
 
     for epoch in tqdm(range(saved_epoch, CONFIG['N_EPOCHS'])):
         logs = dict()
 
         train_lr = _optimizer.optimizer.param_groups[0]['lr']
         logs['train_lr'] = train_lr
-        train(_model, _feature_model, train_loader, _optimizer, -1, device)
+        train(_model, _feature_model, train_loader, _optimizer, 0, device)
 
 
 if __name__ == '__main__':
     CONFIG = {
-        'IMG_INPUT_WIDTH': 300,
-        'IMG_INPUT_HEIGHT': 100,
-        'OUTPUT_LEN': 10,
+        'OUTPUT_LEN': 20,
         "LEARNING_RATE": 1e-7,
         "BATCH_SIZE": 32,
         "HID_DIM": 512,

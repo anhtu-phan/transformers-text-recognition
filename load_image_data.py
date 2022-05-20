@@ -1,16 +1,22 @@
+import string
+
 from torch.utils.data import Dataset
 from torchvision import transforms
 import torch
 import os
-from skimage import io
-from skimage.transform import resize
+import cv2
+# from skimage import io
+# from skimage.transform import resize
+# # from skimage.color import rgba2rgb
 
 
 class ImageDataset(Dataset):
-    def __init__(self, label_file, root_dir, image_folder_name, transform=None):
+    def __init__(self, label_file, root_dir, image_folder_name, max_out_len=10, transform=None):
         self.image_folder = os.path.join(root_dir, image_folder_name)
         self.samples = os.listdir(os.path.join(root_dir, image_folder_name))
         self.map_img_to_label = {}
+        self.vocabulary = string.printable
+        self.max_out_len = max_out_len
         with open(os.path.join(root_dir, label_file), 'r') as f:
             for line in f:
                 content = line.split(',')
@@ -28,22 +34,30 @@ class ImageDataset(Dataset):
 
         img_name = self.samples[idx]
         img_path = os.path.join(self.image_folder, img_name)
-        image = io.imread(img_path, as_gray=True)
-        image = resize(image, (300, 100))
-        target = self.map_img_to_label[img_name]
-
+        image = cv2.imread(img_path)
+        # image = image[:,:,:3]
+        image = cv2.resize(image, (300, 100))
+        label = self.map_img_to_label[img_name]
+        target = []
+        for c in label:
+            target.append(self.vocabulary.index(c)+1)
+        if len(target) < self.max_out_len:
+            target += [0]*(self.max_out_len-len(target))
+        else:
+            target = target[:self.max_out_len]
+        target = torch.tensor(target, dtype=torch.int)
         if self.transform:
             image = self.transform(image)
         return image, target
 
 
-def get_data(batch_size, split_rate=0.9):
+def get_data(batch_size, max_out_len, split_rate=0.9):
     transform = list()
     transform.append(transforms.ToTensor())
     transform.append(transforms.Normalize(mean=[0.5], std=[0.5]))
     transform = transforms.Compose(transform)
 
-    full_train_data = ImageDataset('gt.txt', './dataset', 'images', transform)
+    full_train_data = ImageDataset('gt.txt', './dataset', 'images', max_out_len, transform)
 
     num_samples = len(full_train_data)
     train_samples = int(num_samples*split_rate)
