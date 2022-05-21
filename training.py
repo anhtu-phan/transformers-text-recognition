@@ -29,7 +29,7 @@ def train(model, feature_model, data_loader, optimizer, device):
 
         optimizer.zero_grad()
 
-        feature = feature_model(inputs).type(torch.LongTensor)
+        feature = feature_model(inputs).type(torch.LongTensor).to(device)
         feature *= feature
         output, _ = model(feature, targets)
         output_dim = output.shape[-1]
@@ -58,7 +58,7 @@ def evaluate(model, feature_model, data_loader, device):
             inputs = inputs.to(device)
             targets = targets.to(device)
 
-            feature = feature_model(inputs).type(torch.LongTensor)
+            feature = feature_model(inputs).type(torch.LongTensor).to(device)
             feature *= feature
             output, _ = model(feature, targets)
             output_dim = output.shape[-1]
@@ -78,14 +78,14 @@ def evaluate(model, feature_model, data_loader, device):
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    _feature_model = torchvision.models.vgg16_bn(pretrained=True).to(device)
+    _feature_model = torchvision.models.vgg16_bn(pretrained=True)
 
     enc = Encoder(_feature_model.classifier[-1].out_features, CONFIG['HID_DIM'], CONFIG['ENC_LAYERS'],
                   CONFIG['ENC_HEADS'], CONFIG['ENC_PF_DIM'], CONFIG['ENC_DROPOUT'], device,
                   _feature_model.classifier[-1].out_features)
     dec = Decoder(len(string.printable)+1, CONFIG['HID_DIM'], CONFIG['DEC_LAYERS'], CONFIG['DEC_HEADS'],
                   CONFIG['DEC_PF_DIM'], CONFIG['DEC_DROPOUT'], device, CONFIG['OUTPUT_LEN'])
-    _model = Seq2Seq(enc, dec, -1, -1, device).to(device)
+    _model = Seq2Seq(enc, dec, -1, -1, device)
 
     print(f"{'-' * 10}number of parameters = {count_parameters(_model)}{'-' * 10}\n")
     model_name = 'transformer.pt'
@@ -108,7 +108,7 @@ def main():
                    resume=True)
     else:
         _model.apply(initialize_weights)
-        wandb.init(name=wandb_name, project="multi-domain-machine-translation", config=CONFIG,
+        wandb.init(name=wandb_name, project="transformer-text-recognition", config=CONFIG,
                    resume=False)
 
     _optimizer = SchedulerOptim(torch.optim.Adam(_model.parameters(), lr=CONFIG['LEARNING_RATE'], betas=(0.9, 0.98),
