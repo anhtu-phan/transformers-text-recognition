@@ -1,21 +1,15 @@
-import torch
-from fast_transformers.builders import TransformerEncoderBuilder
+import torch.nn as nn
 
 
-bert = TransformerEncoderBuilder.from_kwargs(
-    n_layers=12,
-    n_heads=12,
-    query_dimensions=64,
-    value_dimensions=64,
-    feed_forward_dimensions=3072,
-    attention_type="full", # change this to use another
-                           # attention implementation
-    activation="gelu"
-).get()
+class LinearTransformer(nn.Module):
+    def __init__(self, encoder, decoder, device):
+        super().__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+        self.device = device
 
-y = bert(torch.rand(
-    10,    # batch_size
-    512,   # sequence length
-    64*12  # features
-))
-print(y)
+    def forward(self, src, trg):
+        enc_src = self.encoder(src)
+        output, attention = self.decoder(trg, enc_src)
+
+        return output, attention

@@ -6,6 +6,8 @@ import wandb
 from tqdm import tqdm
 import string
 from transformer import Encoder, Decoder, Seq2Seq
+from linear_transformer import LinearTransformer
+from fast_transformers.builders import TransformerEncoderBuilder, TransformerDecoderBuilder
 from loss import cal_performance
 from optim import SchedulerOptim
 from load_image_data import get_data
@@ -91,16 +93,29 @@ def evaluate(model, feature_model, data_loader, device):
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     _feature_model = torchvision.models.vgg16_bn(pretrained=True).features
-
-    enc = Encoder(256, CONFIG['HID_DIM'], CONFIG['ENC_LAYERS'], CONFIG['ENC_HEADS'], CONFIG['ENC_PF_DIM'],
-                  CONFIG['ENC_DROPOUT'], device, 3*9)
-    dec = Decoder(len(string.printable)+1, CONFIG['HID_DIM'], CONFIG['DEC_LAYERS'], CONFIG['DEC_HEADS'],
-                  CONFIG['DEC_PF_DIM'], CONFIG['DEC_DROPOUT'], device, CONFIG['OUTPUT_LEN'])
-    _model = Seq2Seq(enc, dec, -1, -1, device).to(device)
+    if model_type == 'transformer':
+        enc = Encoder(256, CONFIG['HID_DIM'], CONFIG['ENC_LAYERS'], CONFIG['ENC_HEADS'], CONFIG['ENC_PF_DIM'],
+                      CONFIG['ENC_DROPOUT'], device, 3*9)
+        dec = Decoder(len(string.printable)+1, CONFIG['HID_DIM'], CONFIG['DEC_LAYERS'], CONFIG['DEC_HEADS'],
+                      CONFIG['DEC_PF_DIM'], CONFIG['DEC_DROPOUT'], device, CONFIG['OUTPUT_LEN'])
+        _model = Seq2Seq(enc, dec, 0, 0, device).to(device)
+    elif model_type == 'linear-transformer':
+        enc = TransformerEncoderBuilder.from_kwargs(n_layers=CONFIG['ENC_LAYERS'], n_heads=CONFIG['ENC_HEADS'],
+                                                    feed_forward_dimensions=CONFIG['ENC_PF_DIM'], query_dimensions=CONFIG['HID_DIM'],
+                                                    value_dimensions=CONFIG['HID_DIM'], attention_type='linear',
+                                                    dropout=CONFIG['ENC_DROPOUT']).get()
+        dec = TransformerDecoderBuilder.from_kwargs(n_layers=CONFIG['DEC_LAYERS'], n_heads=CONFIG['DEC_HEADS'],
+                                                    feed_forward_dimensions=CONFIG['DEC_PF_DIM'],
+                                                    query_dimensions=CONFIG['HID_DIM'],
+                                                    value_dimensions=CONFIG['HID_DIM'], self_attention_type='linear',
+                                                    cross_attention_type='linear', dropout=CONFIG['ENC_DROPOUT']).get()
+        _model = LinearTransformer(enc, dec, device).to(device)
+    else:
+        raise NotImplementedError
 
     print(f"{'-' * 10}number of parameters = {count_parameters(_model)}{'-' * 10}\n")
-    model_name = 'transformer.pt'
-    wandb_name = 'transformer-with-init'
+    model_name = f'{model_type}.pt'
+    wandb_name = f'{model_type}'
     saved_model_dir = './checkpoints/'
     saved_model_path = saved_model_dir + model_name
     best_valid_acc = float('inf')*-1
@@ -173,4 +188,5 @@ if __name__ == '__main__':
         "N_EPOCHS": 1000000,
         "CLIP": 1
     }
+    model_type = 'linear-transformer'
     main()
