@@ -29,12 +29,13 @@ def train(model, feature_model, data_loader, optimizer, device):
 
             optimizer.zero_grad()
 
-            feature = feature_model(inputs).to(device)
+            feature = feature_model(inputs)
+            feature = torch.sum(feature, dim=1)
             feature = feature.view(feature.shape[0], -1)
             feature -= feature.min(1, keepdim=True)[0]
             feature /= feature.max(1, keepdim=True)[0]
             feature *= 255
-            feature = feature.type(torch.LongTensor)
+            feature = feature.type(torch.LongTensor).to(device)
             output, _ = model(feature, targets)
             output_dim = output.shape[-1]
             output = output.contiguous().view(-1, output_dim)
@@ -63,12 +64,13 @@ def evaluate(model, feature_model, data_loader, device):
             for batch_idx, (inputs, targets) in enumerate(data_loader):
                 targets = targets.to(device)
 
-                feature = feature_model(inputs).to(device)
+                feature = feature_model(inputs)
+                feature = torch.sum(feature, dim=1)
                 feature = feature.view(feature.shape[0], -1)
                 feature -= feature.min(1, keepdim=True)[0]
                 feature /= feature.max(1, keepdim=True)[0]
                 feature *= 255
-                feature = feature.type(torch.LongTensor)
+                feature = feature.type(torch.LongTensor).to(device)
                 output, _ = model(feature, targets)
                 output_dim = output.shape[-1]
                 output = output.contiguous().view(-1, output_dim)
@@ -91,7 +93,7 @@ def main():
     _feature_model = torchvision.models.vgg16_bn(pretrained=True).features
 
     enc = Encoder(256, CONFIG['HID_DIM'], CONFIG['ENC_LAYERS'], CONFIG['ENC_HEADS'], CONFIG['ENC_PF_DIM'],
-                  CONFIG['ENC_DROPOUT'], device, 512*3*9)
+                  CONFIG['ENC_DROPOUT'], device, 3*9)
     dec = Decoder(len(string.printable)+1, CONFIG['HID_DIM'], CONFIG['DEC_LAYERS'], CONFIG['DEC_HEADS'],
                   CONFIG['DEC_PF_DIM'], CONFIG['DEC_DROPOUT'], device, CONFIG['OUTPUT_LEN'])
     _model = Seq2Seq(enc, dec, -1, -1, device).to(device)
