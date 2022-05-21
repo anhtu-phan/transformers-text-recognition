@@ -25,13 +25,16 @@ def train(model, feature_model, data_loader, optimizer, device):
     epoch_loss, epoch_total_word, epoch_n_word_correct = 0, 0, 0
     with tqdm(total=len(data_loader)) as pbar:
         for batch_idx, (inputs, targets) in enumerate(data_loader):
-            inputs = inputs
             targets = targets.to(device)
 
             optimizer.zero_grad()
 
-            feature = feature_model(inputs).type(torch.LongTensor).to(device)
-            feature *= feature
+            feature = feature_model(inputs).to(device)
+            feature = feature.view(feature.shape[0], -1)
+            feature -= feature.min(1, keepdim=True)[0]
+            feature /= feature.max(1, keepdim=True)[0]
+            feature *= 255
+            feature = feature.type(torch.LongTensor)
             output, _ = model(feature, targets)
             output_dim = output.shape[-1]
             output = output.contiguous().view(-1, output_dim)
@@ -58,11 +61,14 @@ def evaluate(model, feature_model, data_loader, device):
     with torch.no_grad():
         with tqdm(total=len(data_loader)) as pbar:
             for batch_idx, (inputs, targets) in enumerate(data_loader):
-                inputs = inputs
                 targets = targets.to(device)
 
-                feature = feature_model(inputs).type(torch.LongTensor).to(device)
-                feature *= feature
+                feature = feature_model(inputs).to(device)
+                feature = feature.view(feature.shape[0], -1)
+                feature -= feature.min(1, keepdim=True)[0]
+                feature /= feature.max(1, keepdim=True)[0]
+                feature *= 255
+                feature = feature.type(torch.LongTensor)
                 output, _ = model(feature, targets)
                 output_dim = output.shape[-1]
                 output = output.contiguous().view(-1, output_dim)
@@ -82,14 +88,13 @@ def evaluate(model, feature_model, data_loader, device):
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    _feature_model = torchvision.models.vgg16_bn(pretrained=True)
+    _feature_model = torchvision.models.vgg16_bn(pretrained=True).features
 
-    enc = Encoder(_feature_model.classifier[-1].out_features, CONFIG['HID_DIM'], CONFIG['ENC_LAYERS'],
-                  CONFIG['ENC_HEADS'], CONFIG['ENC_PF_DIM'], CONFIG['ENC_DROPOUT'], device,
-                  _feature_model.classifier[-1].out_features)
+    enc = Encoder(256, CONFIG['HID_DIM'], CONFIG['ENC_LAYERS'], CONFIG['ENC_HEADS'], CONFIG['ENC_PF_DIM'],
+                  CONFIG['ENC_DROPOUT'], device, 512*3*9)
     dec = Decoder(len(string.printable)+1, CONFIG['HID_DIM'], CONFIG['DEC_LAYERS'], CONFIG['DEC_HEADS'],
                   CONFIG['DEC_PF_DIM'], CONFIG['DEC_DROPOUT'], device, CONFIG['OUTPUT_LEN'])
-    _model = Seq2Seq(enc, dec, -1, -1, device)
+    _model = Seq2Seq(enc, dec, -1, -1, device).to(device)
 
     print(f"{'-' * 10}number of parameters = {count_parameters(_model)}{'-' * 10}\n")
     model_name = 'transformer.pt'
@@ -108,16 +113,16 @@ def main():
         saved_epoch = last_checkpoint['epoch']
         _model.load_state_dict(last_checkpoint['state_dict'])
         CONFIG['LEARNING_RATE'] = last_checkpoint['lr']
-        wandb.init(name=wandb_name, project="transformer-text-recognition", config=CONFIG,
-                   resume=True)
+        # wandb.init(name=wandb_name, project="transformer-text-recognition", config=CONFIG,
+        #            resume=True)
     else:
         _model.apply(initialize_weights)
-        wandb.init(name=wandb_name, project="transformer-text-recognition", config=CONFIG,
-                   resume=False)
+        # wandb.init(name=wandb_name, project="transformer-text-recognition", config=CONFIG,
+        #            resume=False)
 
     _optimizer = SchedulerOptim(torch.optim.Adam(_model.parameters(), lr=CONFIG['LEARNING_RATE'], betas=(0.9, 0.98),
                                                  weight_decay=0.0001), 1, CONFIG['HID_DIM'], 4000, 5e-4, saved_epoch)
-    wandb.watch(_model, log='all')
+    # wandb.watch(_model, log='all')
 
     train_loader, val_loader = get_data(CONFIG['BATCH_SIZE'], CONFIG['OUTPUT_LEN'])
 
