@@ -23,26 +23,28 @@ def initialize_weights(m):
 def train(model, feature_model, data_loader, optimizer, device):
     model.train()
     epoch_loss, epoch_total_word, epoch_n_word_correct = 0, 0, 0
-    for batch_idx, (inputs, targets) in enumerate(data_loader):
-        inputs = inputs.to(device)
-        targets = targets.to(device)
+    with tqdm(total=len(data_loader)) as pbar:
+        for batch_idx, (inputs, targets) in enumerate(data_loader):
+            inputs = inputs
+            targets = targets.to(device)
 
-        optimizer.zero_grad()
+            optimizer.zero_grad()
 
-        feature = feature_model(inputs).type(torch.LongTensor).to(device)
-        feature *= feature
-        output, _ = model(feature, targets)
-        output_dim = output.shape[-1]
-        output = output.contiguous().view(-1, output_dim)
-        targets = targets.contiguous().view(-1)
+            feature = feature_model(inputs).type(torch.LongTensor).to(device)
+            feature *= feature
+            output, _ = model(feature, targets)
+            output_dim = output.shape[-1]
+            output = output.contiguous().view(-1, output_dim)
+            targets = targets.contiguous().view(-1)
 
-        loss, n_correct, n_word = cal_performance(output, targets, 0, True, 0.1)
-        loss.backward()
-        optimizer.step()
+            loss, n_correct, n_word = cal_performance(output, targets, 0, True, 0.1)
+            loss.backward()
+            optimizer.step()
 
-        epoch_loss += loss.item()
-        epoch_total_word += n_word
-        epoch_n_word_correct += n_correct
+            epoch_loss += loss.item()
+            epoch_total_word += n_word
+            epoch_n_word_correct += n_correct
+            pbar.update(1)
 
     loss_per_word = epoch_loss/epoch_total_word
     acc = epoch_n_word_correct/epoch_total_word
@@ -54,21 +56,23 @@ def evaluate(model, feature_model, data_loader, device):
     model.eval()
     epoch_loss, epoch_total_word, epoch_n_word_correct = 0, 0, 0
     with torch.no_grad():
-        for batch_idx, (inputs, targets) in enumerate(data_loader):
-            inputs = inputs.to(device)
-            targets = targets.to(device)
+        with tqdm(total=len(data_loader)) as pbar:
+            for batch_idx, (inputs, targets) in enumerate(data_loader):
+                inputs = inputs
+                targets = targets.to(device)
 
-            feature = feature_model(inputs).type(torch.LongTensor).to(device)
-            feature *= feature
-            output, _ = model(feature, targets)
-            output_dim = output.shape[-1]
-            output = output.contiguous().view(-1, output_dim)
-            targets = targets.contiguous().view(-1)
+                feature = feature_model(inputs).type(torch.LongTensor).to(device)
+                feature *= feature
+                output, _ = model(feature, targets)
+                output_dim = output.shape[-1]
+                output = output.contiguous().view(-1, output_dim)
+                targets = targets.contiguous().view(-1)
 
-            loss, n_correct, n_word = cal_performance(output, targets, 0, True, 0.1)
-            epoch_loss += loss.item()
-            epoch_total_word += n_word
-            epoch_n_word_correct += n_correct
+                loss, n_correct, n_word = cal_performance(output, targets, 0, True, 0.1)
+                epoch_loss += loss.item()
+                epoch_total_word += n_word
+                epoch_n_word_correct += n_correct
+                pbar.update(1)
 
     loss_per_word = epoch_loss / epoch_total_word
     acc = epoch_n_word_correct / epoch_total_word
