@@ -57,7 +57,7 @@ def get_data(batch_size, max_out_len, split_rate=0.9):
     transform.append(transforms.Normalize(mean=[0.5], std=[0.5]))
     transform = transforms.Compose(transform)
 
-    full_train_data = ImageDataset('gt.txt', './dataset', 'images', max_out_len, transform)
+    full_train_data = ImageDataset('gt.txt', './dataset/train', 'images', max_out_len, transform)
 
     num_samples = len(full_train_data)
     train_samples = int(num_samples*split_rate)
@@ -71,3 +71,14 @@ def get_data(batch_size, max_out_len, split_rate=0.9):
     valid_loader = torch.utils.data.DataLoader(valid_data, batch_size, shuffle=False)
 
     return train_loader, valid_loader
+
+
+def get_test_data(batch_size, max_out_len):
+    transform = list()
+    transform.append(transforms.ToTensor())
+    transform.append(transforms.Normalize(mean=[0.5], std=[0.5]))
+    transform = transforms.Compose(transform)
+
+    test_data = ImageDataset('gt.txt', './dataset/test', 'images', max_out_len, transform)
+    test_loader = torch.utils.data.DataLoader(test_data, batch_size, shuffle=False)
+    return test_loader
