@@ -1,4 +1,5 @@
 import torchvision
+import torch
 # from fast_transformers.builders import TransformerEncoderBuilder, TransformerDecoderBuilder
 from transformer import Encoder, Decoder, Seq2Seq
 # from linear_transformer import LinearTransformer
@@ -33,3 +34,44 @@ def load_model(transformer_model_type, feature_model_type, config, device):
         raise NotImplementedError
 
     return model, feature_model
+
+
+def extract_feature(feature_model, inputs, device):
+    feature = feature_model(inputs)
+    feature = torch.sum(feature, dim=1)
+    feature = feature.view(feature.shape[0], -1)
+    feature -= feature.min(1, keepdim=True)[0]
+    feature /= feature.max(1, keepdim=True)[0]
+    feature *= 255
+    feature = feature.type(torch.LongTensor)
+
+    return feature.to(device)
+
+
+def predict(feature, model, device, max_len):
+    model.eval()
+
+    src_mask = model.make_src_mask(feature)
+    with torch.no_grad():
+        enc_src = model.encoder(feature, src_mask)
+
+    trg_indexes = [0]
+    for i in range(max_len):
+        trg_tensor = torch.LongTensor(trg_indexes).unsqueeze(0).to(device)
+        trg_mask = model.make_trg_mask(trg_tensor)
+
+        with torch.no_grad():
+            output, attention = model.decoder(trg_tensor, enc_src, trg_mask, src_mask)
+
+        pred_token = output.argmax(2)[:, -1].item()
+
+        trg_indexes.append(pred_token)
+        if pred_token == 0:
+            break
+
+    vocab = string.printable
+    output_tokens = []
+    for i in trg_indexes:
+        if i > 0:
+            output_tokens.append(vocab[i - 1])
+    return output_tokens

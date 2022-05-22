@@ -6,7 +6,8 @@ from tqdm import tqdm
 from loss import cal_performance
 from optim import SchedulerOptim
 from load_image_data import get_data
-from model import load_model
+from model import load_model, extract_feature
+
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -15,6 +16,15 @@ def count_parameters(model):
 def initialize_weights(m):
     if hasattr(m, 'weight') and m.weight.dim() > 1:
         nn.init.xavier_uniform_(m.weight.data)
+
+
+def get_output(model, feature_model, inputs, targets, device):
+    feature = extract_feature(feature_model, inputs, device)
+    output, _ = model(feature, targets)
+    output_dim = output.shape[-1]
+    output = output.contiguous().view(-1, output_dim)
+
+    return output
 
 
 def train(model, feature_model, data_loader, optimizer, device):
@@ -26,16 +36,7 @@ def train(model, feature_model, data_loader, optimizer, device):
 
             optimizer.zero_grad()
 
-            feature = feature_model(inputs)
-            feature = torch.sum(feature, dim=1)
-            feature = feature.view(feature.shape[0], -1)
-            feature -= feature.min(1, keepdim=True)[0]
-            feature /= feature.max(1, keepdim=True)[0]
-            feature *= 255
-            feature = feature.type(torch.LongTensor).to(device)
-            output, _ = model(feature, targets)
-            output_dim = output.shape[-1]
-            output = output.contiguous().view(-1, output_dim)
+            output = get_output(model, feature_model, inputs, targets, device)
             targets = targets.contiguous().view(-1)
 
             loss, n_correct, n_word = cal_performance(output, targets, 0, True, 0.1)
@@ -61,16 +62,7 @@ def evaluate(model, feature_model, data_loader, device):
             for batch_idx, (inputs, targets) in enumerate(data_loader):
                 targets = targets.to(device)
 
-                feature = feature_model(inputs)
-                feature = torch.sum(feature, dim=1)
-                feature = feature.view(feature.shape[0], -1)
-                feature -= feature.min(1, keepdim=True)[0]
-                feature /= feature.max(1, keepdim=True)[0]
-                feature *= 255
-                feature = feature.type(torch.LongTensor).to(device)
-                output, _ = model(feature, targets)
-                output_dim = output.shape[-1]
-                output = output.contiguous().view(-1, output_dim)
+                output = get_output(model, feature_model, inputs, targets, device)
                 targets = targets.contiguous().view(-1)
 
                 loss, n_correct, n_word = cal_performance(output, targets, 0, True, 0.1)

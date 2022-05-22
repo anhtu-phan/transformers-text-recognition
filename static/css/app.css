@@ -1,0 +1,26 @@
+#app {
+	padding: 20px;
+}
+
+div#loading {
+    width: 100px;
+    height: 100px;
+    margin: auto;
+    display: none;
+    background-image: url(/static/assets/loading.gif);
+    background-size: 100px;
+    cursor: wait;
+}
+
+table {
+    margin-top: 10px;
+    font-family: arial, sans-serif;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+td, th {
+  border: 1px solid #dddddd;
+  text-align: left;
+  padding: 8px;
+}

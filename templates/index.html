@@ -1,0 +1,61 @@
+<!doctype! html>
+<html>
+	<head>
+		<title>Transformer text recognition</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+		<link rel="stylesheet" href="/static/css/app.css" type="text/css">
+		<script src="https://cdn.staticfile.org/jquery/3.2.1/jquery.min.js"></script>
+	</head>
+	<body>
+		<div id="app">
+			<div>
+				<form id="upload-form" method="post" enctype="multipart/form-data">
+					<div class="form-content-container">
+						<input id="upload_image" type="file" name="image">
+						<input id="upload_button" type="submit" value="Submit" onclick="loading();"/>
+					</div>
+				</form>
+			</div>
+			<hr>
+			<div>
+				{% if filename %}
+				<div>
+					<img src="{{ url_for('display_image', filename=filename) }}">
+				</div>
+				{% endif %}
+				<table id="result">
+					<thead>
+						<tr>
+							<th>Model</th>
+							<th>Result</th>
+							<th>Time (second)</th>
+						</tr>
+					</thead>
+					{% if result %}
+						<tbody>
+							{% for r in result%}
+								<tr>
+									<td>{{ r.model_type }}</td>
+									<td>{{ r.result }}</td>
+									<td>{{ r.time }}</td>
+								</tr>
+							{% endfor %}
+						</tbody>
+					{% endif %}
+				</table>
+			</div>
+			<div id="loading"></div>
+		</div>
+		<script type="text/javascript">// <![CDATA[
+			function loading(){
+				$("#loading").show();
+				$("#result").find("tbody").hide();
+			}
+			$("#upload-form").submit(function (e) {
+				$("#upload_button").attr("disabled", true);
+				return true;
+			});
+		// ]]>
+		</script>
+	</body>
+</html>
