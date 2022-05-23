@@ -9,4 +9,4 @@
 #SBATCH --mail-user=anhtu@cl.uni-heidelberg.de
 #SBATCH --mail-type=ALL
 
-srun /workspace/students/anhtu/transformers-text-recognition/bash/run_training.sh
+srun ./run_training.sh
