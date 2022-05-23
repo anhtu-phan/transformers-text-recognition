@@ -23,7 +23,7 @@ def initialize_weights(m):
 
 def get_output(model, feature_model, inputs, targets, device):
     feature = extract_feature(feature_model, inputs, device)
-    trg_indexes = torch.randint(1, len(vocab) + 1, (CONFIG['OUTPUT_LEN'],))
+    trg_indexes = torch.randint(1, len(vocab) + 1, targets.shape)
     output, _ = model(feature, trg_indexes)
     output_dim = output.shape[-1]
     output = output.contiguous().view(-1, output_dim)
