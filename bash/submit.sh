@@ -9,4 +9,4 @@
 #SBATCH --mail-user=anhtu@cl.uni-heidelberg.de
 #SBATCH --mail-type=ALL
 
-srun ./run_training.sh
+srun ./bash/run_training.sh
