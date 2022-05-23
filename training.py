@@ -79,7 +79,7 @@ def evaluate(model, feature_model, data_loader, device):
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    _model, _feature_model = load_model(model_type, "vgg16", CONFIG)
+    _model, _feature_model = load_model(model_type, "vgg16", CONFIG, device)
     print(f"{'-' * 10}number of parameters = {count_parameters(_model)}{'-' * 10}\n")
     model_name = f'{model_type}.pt'
     wandb_name = f'{model_type}'
@@ -155,5 +155,5 @@ if __name__ == '__main__':
         "N_EPOCHS": 1000000,
         "CLIP": 1
     }
-    model_type = 'linear-transformer'
+    model_type = 'transformer'
     main()
