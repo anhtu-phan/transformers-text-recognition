@@ -17,8 +17,6 @@ def index():
 
 @app.route('/', methods=['POST'])
 def index_post():
-    import io
-    bio = io.BytesIO()
     file = request.files['image']
     file_save_path = os.path.join('static/input_images', file.filename)
     file.save(file_save_path)

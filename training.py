@@ -2,11 +2,14 @@ import torch
 import torch.nn as nn
 import os
 import wandb
+import string
 from tqdm import tqdm
 from loss import cal_performance
 from optim import SchedulerOptim
 from load_image_data import get_data
 from model import load_model, extract_feature
+
+vocab = string.printable
 
 
 def count_parameters(model):
@@ -20,7 +23,8 @@ def initialize_weights(m):
 
 def get_output(model, feature_model, inputs, targets, device):
     feature = extract_feature(feature_model, inputs, device)
-    output, _ = model(feature, targets)
+    trg_indexes = torch.randint(1, len(vocab) + 1, (CONFIG['OUTPUT_LEN'],))
+    output, _ = model(feature, trg_indexes)
     output_dim = output.shape[-1]
     output = output.contiguous().view(-1, output_dim)
 

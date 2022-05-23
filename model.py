@@ -55,23 +55,20 @@ def predict(feature, model, device, max_len):
     with torch.no_grad():
         enc_src = model.encoder(feature, src_mask)
 
-    trg_indexes = [0]
-    for i in range(max_len):
-        trg_tensor = torch.LongTensor(trg_indexes).unsqueeze(0).to(device)
-        trg_mask = model.make_trg_mask(trg_tensor)
-
-        with torch.no_grad():
-            output, attention = model.decoder(trg_tensor, enc_src, trg_mask, src_mask)
-
-        pred_token = output.argmax(2)[:, -1].item()
-
-        trg_indexes.append(pred_token)
-        if pred_token == 0:
-            break
-
     vocab = string.printable
+
+    trg_indexes = torch.randint(1, len(vocab)+1, (max_len,))
+    trg_tensor = torch.LongTensor(trg_indexes).unsqueeze(0).to(device)
+    trg_mask = model.make_trg_mask(trg_tensor)
+
+    with torch.no_grad():
+        output, attention = model.decoder(trg_tensor, enc_src, trg_mask, src_mask)
+
+    output_dim = output.shape[-1]
+    output = output.contiguous().view(-1, output_dim)
+    pred = output.max(1)[1]
     output_tokens = []
-    for i in trg_indexes:
+    for i in pred:
         if i > 0:
             output_tokens.append(vocab[i - 1])
     return output_tokens
