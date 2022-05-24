@@ -41,7 +41,8 @@ def get_output_transformer_random_trg(model, feature_model, inputs, targets, dev
 
 
 def get_output_transformer_no_trg(model, feature_model, inputs, device):
-    feature = extract_feature(feature_model, inputs, device)
+    feature = feature_model(inputs)
+    feature = feature.view(feature.shape[0], -1).to(device)
     output = model(feature)
     output_dim = output.shape[-1]
     output = output.contiguous().view(-1, output_dim)
@@ -66,6 +67,7 @@ def train(model, feature_model, data_loader, optimizer, device):
     epoch_loss, epoch_total_word, epoch_n_word_correct = 0, 0, 0
     with tqdm(total=len(data_loader)) as pbar:
         for batch_idx, (inputs, targets) in enumerate(data_loader):
+            inputs = inputs.to(device)
             targets = targets.to(device)
 
             optimizer.zero_grad()
@@ -94,6 +96,7 @@ def evaluate(model, feature_model, data_loader, device):
     with torch.no_grad():
         with tqdm(total=len(data_loader)) as pbar:
             for batch_idx, (inputs, targets) in enumerate(data_loader):
+                inputs = inputs.to(device)
                 targets = targets.to(device)
 
                 output = get_output(model, feature_model, inputs, targets, device)

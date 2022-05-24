@@ -23,11 +23,11 @@ def load_model(transformer_model_type, feature_model_type, config, device):
                       config['ENC_DROPOUT'], device, 3 * 9)
         dec = DecoderNoTrg(len(string.printable) + 1, config['HID_DIM'], config['DEC_LAYERS'], config['DEC_HEADS'],
                            config['DEC_PF_DIM'], config['DEC_DROPOUT'], device)
-        model = Seq2SeqNoTrg(enc, dec, 0, config['OUTPUT_LEN'], 3*9, device).to(device)
+        model = Seq2SeqNoTrg(enc, dec, 0, config['OUTPUT_LEN'], 512*3*9, device).to(device)
     else:
         raise NotImplementedError
 
-    return model, feature_model
+    return model, feature_model.to(device)
 
 
 def extract_feature(feature_model, inputs, device):
