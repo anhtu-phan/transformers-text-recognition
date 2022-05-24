@@ -60,7 +60,7 @@ class Seq2Seq(nn.Module):
         return src_mask
 
     def forward(self, src):
-        src = self.convert(src.type(torch.FloatTensor))
+        src = self.convert(src.type(torch.FloatTensor).to(self.device))
         src -= src.min(1, keepdim=True)[0]
         src /= src.max(1, keepdim=True)[0]
         src *= 255

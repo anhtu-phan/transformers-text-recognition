@@ -131,16 +131,16 @@ def main():
         saved_epoch = last_checkpoint['epoch']
         _model.load_state_dict(last_checkpoint['state_dict'])
         CONFIG['LEARNING_RATE'] = last_checkpoint['lr']
-        # wandb.init(name=wandb_name, project="transformer-text-recognition", config=CONFIG,
-        #            resume=True)
+        wandb.init(name=wandb_name, project="transformer-text-recognition", config=CONFIG,
+                   resume=True)
     else:
         _model.apply(initialize_weights)
-        # wandb.init(name=wandb_name, project="transformer-text-recognition", config=CONFIG,
-        #            resume=False)
+        wandb.init(name=wandb_name, project="transformer-text-recognition", config=CONFIG,
+                   resume=False)
 
     _optimizer = SchedulerOptim(torch.optim.Adam(_model.parameters(), lr=CONFIG['LEARNING_RATE'], betas=(0.9, 0.98),
                                                  weight_decay=0.0001), 1, CONFIG['HID_DIM'], 4000, 5e-4, saved_epoch)
-    # wandb.watch(_model, log='all')
+    wandb.watch(_model, log='all')
 
     train_loader, val_loader = get_data(CONFIG['BATCH_SIZE'], CONFIG['OUTPUT_LEN'])
 
@@ -169,7 +169,7 @@ def main():
             }
             torch.save(checkpoint, saved_model_path)
 
-        # wandb.log(logs, step=epoch)
+        wandb.log(logs, step=epoch)
 
 
 if __name__ == '__main__':
