@@ -8,6 +8,7 @@ from loss import cal_performance
 from optim import SchedulerOptim
 from load_image_data import get_data
 from model import load_model, extract_feature
+from constants import MODEL_TYPE
 
 vocab = string.printable
 
@@ -21,13 +22,42 @@ def initialize_weights(m):
         nn.init.xavier_uniform_(m.weight.data)
 
 
-def get_output(model, feature_model, inputs, targets, device):
+def get_output_transformer(model, feature_model, inputs, targets, device):
     feature = extract_feature(feature_model, inputs, device)
-    trg_indexes = torch.randint(1, len(vocab) + 1, targets.shape)
+    output, _ = model(feature, targets)
+    output_dim = output.shape[-1]
+    output = output.contiguous().view(-1, output_dim)
+    return output
+
+
+def get_output_transformer_random_trg(model, feature_model, inputs, targets, device):
+    feature = extract_feature(feature_model, inputs, device)
+    trg_indexes = torch.LongTensor(torch.randint(1, len(vocab) + 1, targets.shape)).to(device)
     output, _ = model(feature, trg_indexes)
     output_dim = output.shape[-1]
     output = output.contiguous().view(-1, output_dim)
 
+    return output
+
+
+def get_output_transformer_no_trg(model, feature_model, inputs, device):
+    feature = extract_feature(feature_model, inputs, device)
+    output = model(feature)
+    output_dim = output.shape[-1]
+    output = output.contiguous().view(-1, output_dim)
+
+    return output
+
+
+def get_output(model, feature_model, inputs, targets, device):
+    if model_type == MODEL_TYPE[0]:
+        output = get_output_transformer(model, feature_model, inputs, targets, device)
+    elif model_type == MODEL_TYPE[1]:
+        output = get_output_transformer_random_trg(model, feature_model, inputs, targets, device)
+    elif model_type == MODEL_TYPE[2]:
+        output = get_output_transformer_no_trg(model, feature_model, inputs, device)
+    else:
+        raise NotImplementedError
     return output
 
 
@@ -101,16 +131,16 @@ def main():
         saved_epoch = last_checkpoint['epoch']
         _model.load_state_dict(last_checkpoint['state_dict'])
         CONFIG['LEARNING_RATE'] = last_checkpoint['lr']
-        wandb.init(name=wandb_name, project="transformer-text-recognition", config=CONFIG,
-                   resume=True)
+        # wandb.init(name=wandb_name, project="transformer-text-recognition", config=CONFIG,
+        #            resume=True)
     else:
         _model.apply(initialize_weights)
-        wandb.init(name=wandb_name, project="transformer-text-recognition", config=CONFIG,
-                   resume=False)
+        # wandb.init(name=wandb_name, project="transformer-text-recognition", config=CONFIG,
+        #            resume=False)
 
     _optimizer = SchedulerOptim(torch.optim.Adam(_model.parameters(), lr=CONFIG['LEARNING_RATE'], betas=(0.9, 0.98),
                                                  weight_decay=0.0001), 1, CONFIG['HID_DIM'], 4000, 5e-4, saved_epoch)
-    wandb.watch(_model, log='all')
+    # wandb.watch(_model, log='all')
 
     train_loader, val_loader = get_data(CONFIG['BATCH_SIZE'], CONFIG['OUTPUT_LEN'])
 
@@ -139,7 +169,7 @@ def main():
             }
             torch.save(checkpoint, saved_model_path)
 
-        wandb.log(logs, step=epoch)
+        # wandb.log(logs, step=epoch)
 
 
 if __name__ == '__main__':
@@ -159,5 +189,5 @@ if __name__ == '__main__':
         "N_EPOCHS": 1000000,
         "CLIP": 1
     }
-    model_type = 'transformer'
+    model_type = MODEL_TYPE[2]
     main()

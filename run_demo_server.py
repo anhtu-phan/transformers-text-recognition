@@ -1,9 +1,8 @@
 import os
 import torch
 import cv2
-import numpy as np
 from flask import Flask, request, render_template, redirect, url_for
-from model import load_model, predict, extract_feature
+from model import load_model, predict, extract_feature, predict_sequence
 from torchvision import transforms
 import time
 
@@ -29,12 +28,17 @@ def index_post():
     img = transform(img)
     img = img.unsqueeze(0)
 
-    start_time = time.time()
     feature = extract_feature(feature_model, img, device)
-    output = predict(feature, model, device, CONFIG['OUTPUT_LEN'])
+    start_time = time.time()
+    output = predict_sequence(feature, model, device, CONFIG['OUTPUT_LEN'])
     predict_time = time.time() - start_time
 
-    result = [{'model_type': 'transformer', 'result': ''.join(output), 'time': f'{predict_time:.2f}'}]
+    start_time = time.time()
+    output2 = predict(feature, model2, device, CONFIG['OUTPUT_LEN'])
+    predict_time2 = time.time() - start_time
+
+    result = [{'model_type': 'transformer', 'result': ''.join(output), 'time': f'{predict_time:.2f}'},
+              {'model_type': 'transformer2', 'result': ''.join(output2), 'time': f'{predict_time2:.2f}'}]
     return render_template('index.html', filename=file.filename, result=result)
 
 
@@ -65,8 +69,13 @@ if __name__ == '__main__':
     model_type = 'transformer'
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model, feature_model = load_model(model_type, 'vgg16', CONFIG, device)
-    model_path = f'./checkpoints/{model_type}.pt'
+    model_path = f'./checkpoints/{model_type}_.pt'
     checkpoint = torch.load(model_path, map_location=device)
     model.load_state_dict(checkpoint['state_dict'])
+
+    model2, _ = load_model(model_type, 'vgg16', CONFIG, device)
+    model2_path = f'./checkpoints/{model_type}.pt'
+    checkpoint2 = torch.load(model2_path, map_location=device)
+    model2.load_state_dict(checkpoint2['state_dict'])
 
     app.run('0.0.0.0', port=9595)
