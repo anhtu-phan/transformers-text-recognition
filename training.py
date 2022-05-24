@@ -55,7 +55,7 @@ def get_output(model, feature_model, inputs, targets, device):
         output = get_output_transformer(model, feature_model, inputs, targets, device)
     elif model_type == MODEL_TYPE[1]:
         output = get_output_transformer_random_trg(model, feature_model, inputs, targets, device)
-    elif model_type == MODEL_TYPE[2]:
+    elif model_type == MODEL_TYPE[2] or model_type == MODEL_TYPE[3]:
         output = get_output_transformer_no_trg(model, feature_model, inputs, device)
     else:
         raise NotImplementedError
