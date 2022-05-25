@@ -118,8 +118,8 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     _model, _feature_model = load_model(model_type, "vgg16", CONFIG, device)
     print(f"{'-' * 10}number of parameters = {count_parameters(_model)}{'-' * 10}\n")
-    model_name = f'{model_type}.pt'
-    wandb_name = f'{model_type}'
+    model_name = f'{model_type}-train-feature.pt'
+    wandb_name = f'{model_type}-train-feature'
     saved_model_dir = './checkpoints/'
     saved_model_path = saved_model_dir + model_name
     best_valid_acc = float('inf')*-1
@@ -141,8 +141,9 @@ def main():
         wandb.init(name=wandb_name, project="transformer-text-recognition", config=CONFIG,
                    resume=False)
 
-    _optimizer = SchedulerOptim(torch.optim.Adam(_model.parameters(), lr=CONFIG['LEARNING_RATE'], betas=(0.9, 0.98),
-                                                 weight_decay=0.0001), 1, CONFIG['HID_DIM'], 4000, 5e-4, saved_epoch)
+    _optimizer = torch.optim.Adam(list(_model.parameters()) + list(_feature_model.parameters()),
+                                  lr=CONFIG['LEARNING_RATE'], betas=(0.9, 0.98), weight_decay=0.0001)
+
     wandb.watch(_model, log='all')
 
     train_loader, val_loader = get_data(CONFIG['BATCH_SIZE'], CONFIG['OUTPUT_LEN'])
@@ -150,7 +151,7 @@ def main():
     for epoch in tqdm(range(saved_epoch, CONFIG['N_EPOCHS'])):
         logs = dict()
 
-        train_lr = _optimizer.optimizer.param_groups[0]['lr']
+        train_lr = _optimizer.param_groups[0]['lr']
         logs['train_lr'] = train_lr
         train_loss, train_loss_per_word, train_acc = train(_model, _feature_model, train_loader, _optimizer, device)
         val_loss, val_loss_per_word, val_acc = evaluate(_model, _feature_model, val_loader, device)
@@ -192,5 +193,5 @@ if __name__ == '__main__':
         "N_EPOCHS": 1000000,
         "CLIP": 1
     }
-    model_type = MODEL_TYPE[2]
+    model_type = MODEL_TYPE[3]
     main()
