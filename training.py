@@ -10,7 +10,7 @@ from model import load_model, extract_feature
 from constants import MODEL_TYPE
 
 vocab = string.printable
-model_type = MODEL_TYPE[0]
+model_type = MODEL_TYPE[4]
 
 
 def count_parameters(model):
@@ -129,8 +129,8 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     _model, _feature_model = load_model(model_type, "vgg16", CONFIG, device)
     print(f"{'-' * 10}number of parameters = {count_parameters(_model)}{'-' * 10}\n")
-    model_name = f'{model_type}.pt'
-    wandb_name = f'{model_type}'
+    model_name = f'{model_type}-no-train-feature.pt'
+    wandb_name = f'{model_type}-no-train-feature'
     saved_model_dir = './checkpoints/'
     saved_model_path = saved_model_dir + model_name
     best_valid_acc = float('inf')*-1
