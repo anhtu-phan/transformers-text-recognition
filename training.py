@@ -10,7 +10,7 @@ from model import load_model, extract_feature
 from constants import MODEL_TYPE
 
 vocab = string.printable
-model_type = MODEL_TYPE[4]
+model_type = MODEL_TYPE[0]
 
 
 def count_parameters(model):

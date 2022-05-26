@@ -38,9 +38,9 @@ class ImageDataset(Dataset):
         # image = image[:,:,:3]
         image = cv2.resize(image, (300, 100))
         label = self.map_img_to_label[img_name]
-        target = []
+        target = [1]
         for c in label:
-            target.append(self.vocabulary.index(c)+1)
+            target.append(self.vocabulary.index(c)+2)
         if len(target) < self.max_out_len:
             target += [0]*(self.max_out_len-len(target))
         else:
