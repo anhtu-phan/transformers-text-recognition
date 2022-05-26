@@ -5,6 +5,7 @@ from flask import Flask, request, render_template, redirect, url_for
 from model import load_model, predict, extract_feature, predict_sequence
 from torchvision import transforms
 import time
+from constants import MODEL_TYPE
 
 app = Flask(__name__)
 
@@ -28,17 +29,24 @@ def index_post():
     img = transform(img)
     img = img.unsqueeze(0)
 
-    feature = extract_feature(feature_model, img, device)
+    feature = feature_model(img)
+    feature = feature.view(feature.shape[0], -1).to(device)
+    src = model.convert_src(feature).to(device)
+    src -= src.min(1, keepdim=True)[0]
+    src /= src.max(1, keepdim=True)[0]
+    src *= 255
+    src = src.type(torch.LongTensor).to(device)
     start_time = time.time()
-    output = predict_sequence(feature, model, device, CONFIG['OUTPUT_LEN'])
+    output = predict_sequence(src, model, device, CONFIG['OUTPUT_LEN'])
     predict_time = time.time() - start_time
 
-    start_time = time.time()
-    output2 = predict(feature, model2, device, CONFIG['OUTPUT_LEN'])
-    predict_time2 = time.time() - start_time
+    # start_time = time.time()
+    # output2 = predict(feature, model2, device, CONFIG['OUTPUT_LEN'])
+    # predict_time2 = time.time() - start_time
 
     result = [{'model_type': 'transformer', 'result': ''.join(output), 'time': f'{predict_time:.2f}'},
-              {'model_type': 'transformer2', 'result': ''.join(output2), 'time': f'{predict_time2:.2f}'}]
+              # {'model_type': 'transformer2', 'result': ''.join(output2), 'time': f'{predict_time2:.2f}'}
+             ]
     return render_template('index.html', filename=file.filename, result=result)
 
 
@@ -66,16 +74,17 @@ if __name__ == '__main__':
         "N_EPOCHS": 1000000,
         "CLIP": 1
     }
-    model_type = 'transformer'
+    model_type = MODEL_TYPE[5]
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model, feature_model = load_model(model_type, 'vgg16', CONFIG, device)
-    model_path = f'./checkpoints/{model_type}-no-train-feature.pt'
+    model_path = f'./checkpoints/{model_type}.pt'
     checkpoint = torch.load(model_path, map_location=device)
     model.load_state_dict(checkpoint['state_dict'])
 
-    model2, _ = load_model(model_type, 'vgg16', CONFIG, device)
-    model2_path = f'./checkpoints/{model_type}.pt'
-    checkpoint2 = torch.load(model2_path, map_location=device)
-    model2.load_state_dict(checkpoint2['state_dict'])
+    # model_type = MODEL_TYPE[0]
+    # model2, _ = load_model(model_type, 'vgg16', CONFIG, device)
+    # model2_path = f'./checkpoints/{model_type}.pt'
+    # checkpoint2 = torch.load(model2_path, map_location=device)
+    # model2.load_state_dict(checkpoint2['state_dict'])
 
     app.run('0.0.0.0', port=9595)

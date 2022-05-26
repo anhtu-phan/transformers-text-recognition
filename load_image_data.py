@@ -41,8 +41,8 @@ class ImageDataset(Dataset):
         target = [1]
         for c in label:
             target.append(self.vocabulary.index(c)+2)
-        if len(target) < self.max_out_len:
-            target += [0]*(self.max_out_len-len(target))
+        if len(target) < self.max_out_len+1:
+            target += [0]*(self.max_out_len+1-len(target))
         else:
             target = target[:self.max_out_len]
         target = torch.tensor(target, dtype=torch.int64)

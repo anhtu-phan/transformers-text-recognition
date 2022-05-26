@@ -10,7 +10,7 @@ from model import load_model, extract_feature
 from constants import MODEL_TYPE
 
 vocab = string.printable
-model_type = MODEL_TYPE[0]
+model_type = MODEL_TYPE[5]
 
 
 def count_parameters(model):
@@ -94,8 +94,8 @@ def train(model, feature_model, data_loader, optimizer, device):
 
             optimizer.zero_grad()
 
-            output = get_output(model, feature_model, inputs, targets, device)
-            targets = targets.contiguous().view(-1)
+            output = get_output(model, feature_model, inputs, targets[:, :-1], device)
+            targets = targets[:, 1:].contiguous().view(-1)
 
             loss, n_correct, n_word = cal_performance(output, targets, 0, True, 0.1)
             loss.backward()
@@ -122,9 +122,9 @@ def evaluate(model, feature_model, data_loader, device):
                 targets = targets.to(device)
 
                 output = get_output(model, feature_model, inputs, targets, device)
-                targets = targets.contiguous().view(-1)
+                targets = targets[:, 1:].contiguous().view(-1)
 
-                loss, n_correct, n_word = cal_performance(output, targets, 0, True, 0.1)
+                loss, n_correct, n_word = cal_performance(output, targets[:, :-1], 0, True, 0.1)
                 epoch_loss += loss.item()
                 epoch_total_word += n_word
                 epoch_n_word_correct += n_correct
@@ -140,8 +140,8 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     _model, _feature_model = load_model(model_type, "vgg16", CONFIG, device)
     print(f"{'-' * 10}number of parameters = {count_parameters(_model)}{'-' * 10}\n")
-    model_name = f'{model_type}-no-train-feature.pt'
-    wandb_name = f'{model_type}-no-train-feature'
+    model_name = f'{model_type}.pt'
+    wandb_name = f'{model_type}'
     saved_model_dir = './checkpoints/'
     saved_model_path = saved_model_dir + model_name
     best_valid_acc = float('inf')*-1

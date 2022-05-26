@@ -7,7 +7,7 @@ from training import evaluate, model_type
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model, feature_model = load_model(model_type, 'vgg16', CONFIG, device)
-    model_path = f'./checkpoints/{model_type}_with_init_token.pt'
+    model_path = f'./checkpoints/{model_type}.pt'
     checkpoint = torch.load(model_path, map_location=device)
     model.load_state_dict(checkpoint['state_dict'])
 
