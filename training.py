@@ -121,10 +121,10 @@ def evaluate(model, feature_model, data_loader, device):
                 inputs = inputs.to(device)
                 targets = targets.to(device)
 
-                output = get_output(model, feature_model, inputs, targets, device)
+                output = get_output(model, feature_model, inputs, targets[:, :-1], device)
                 targets = targets[:, 1:].contiguous().view(-1)
 
-                loss, n_correct, n_word = cal_performance(output, targets[:, :-1], 0, True, 0.1)
+                loss, n_correct, n_word = cal_performance(output, targets, 0, True, 0.1)
                 epoch_loss += loss.item()
                 epoch_total_word += n_word
                 epoch_n_word_correct += n_correct
