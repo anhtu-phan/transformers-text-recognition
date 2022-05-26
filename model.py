@@ -68,9 +68,10 @@ def predict_sequence(feature, model, device, max_len):
             output, attention = model.decoder(trg_tensor, enc_src, trg_mask, src_mask)
 
         pred_token = output.argmax(2)[:, -1].item()
-        if i == 0:
-            trg_indexes[0] = pred_token
+        # if i == 0:
+        #     trg_indexes[0] = pred_token
         trg_indexes.append(pred_token)
+        # trg_indexes[i+1] = pred_token
         if pred_token == 0:
             break
 

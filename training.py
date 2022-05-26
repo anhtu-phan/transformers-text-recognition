@@ -10,6 +10,7 @@ from model import load_model, extract_feature
 from constants import MODEL_TYPE
 
 vocab = string.printable
+model_type = MODEL_TYPE[0]
 
 
 def count_parameters(model):
@@ -151,8 +152,8 @@ def main():
         wandb.init(name=wandb_name, project="transformer-text-recognition", config=CONFIG,
                    resume=False)
 
-    _optimizer = torch.optim.Adam(list(_model.parameters()) + list(_feature_model.parameters()),
-                                  lr=CONFIG['LEARNING_RATE'], betas=(0.9, 0.98), weight_decay=0.0001)
+    _optimizer = torch.optim.Adam(_model.parameters(), lr=CONFIG['LEARNING_RATE'],
+                                  betas=(0.9, 0.98), weight_decay=0.0001)
 
     wandb.watch(_model, log='all')
 
@@ -203,5 +204,4 @@ if __name__ == '__main__':
         "N_EPOCHS": 1000000,
         "CLIP": 1
     }
-    model_type = MODEL_TYPE[4]
     main()

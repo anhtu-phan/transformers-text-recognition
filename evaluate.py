@@ -1,13 +1,13 @@
 import torch
 from model import load_model
 from load_image_data import get_test_data
-from training import evaluate
+from training import evaluate, model_type
 
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model, feature_model = load_model(model_type, 'vgg16', CONFIG, device)
-    model_path = f'./checkpoints/{model_type}.pt'
+    model_path = f'./checkpoints/{model_type}_with_init_token.pt'
     checkpoint = torch.load(model_path, map_location=device)
     model.load_state_dict(checkpoint['state_dict'])
 
@@ -33,5 +33,5 @@ if __name__ == '__main__':
         "N_EPOCHS": 1000000,
         "CLIP": 1
     }
-    model_type = 'transformer'
+    # model_type = MODEL_TYPE[0]
     main()
