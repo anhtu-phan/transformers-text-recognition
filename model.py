@@ -1,6 +1,6 @@
 import torchvision
 import torch
-from transformer import Encoder, Decoder, Seq2Seq
+from transformer import Encoder, Decoder, Seq2Seq, Seq2SeqTrgSameSrc
 from transformer_without_trg import Decoder as DecoderNoTrg, Seq2Seq as Seq2SeqNoTrg, Seq2SeqWithoutDecoder
 from constants import MODEL_TYPE
 import string
@@ -28,6 +28,12 @@ def load_model(transformer_model_type, feature_model_type, config, device):
         enc = Encoder(256, config['HID_DIM'], config['ENC_LAYERS'], config['ENC_HEADS'], config['ENC_PF_DIM'],
                       config['ENC_DROPOUT'], device, 3 * 9)
         model = Seq2SeqWithoutDecoder(enc, 0, config['HID_DIM'], len(string.printable) + 1, config['OUTPUT_LEN'], 512*3*9, device).to(device)
+    elif transformer_model_type == MODEL_TYPE[4]:
+        enc = Encoder(256, config['HID_DIM'], config['ENC_LAYERS'], config['ENC_HEADS'], config['ENC_PF_DIM'],
+                      config['ENC_DROPOUT'], device, config['OUTPUT_LEN'])
+        dec = Decoder(len(string.printable) + 1, config['HID_DIM'], config['DEC_LAYERS'], config['DEC_HEADS'],
+                      config['DEC_PF_DIM'], config['DEC_DROPOUT'], device, config['OUTPUT_LEN'])
+        model = Seq2SeqTrgSameSrc(enc, dec, 0, 0, len(string.printable) + 1, config['OUTPUT_LEN'], 512*3*9, device).to(device)
     else:
         raise NotImplementedError
 
@@ -62,7 +68,8 @@ def predict_sequence(feature, model, device, max_len):
             output, attention = model.decoder(trg_tensor, enc_src, trg_mask, src_mask)
 
         pred_token = output.argmax(2)[:, -1].item()
-
+        if i == 0:
+            trg_indexes[0] = pred_token
         trg_indexes.append(pred_token)
         if pred_token == 0:
             break

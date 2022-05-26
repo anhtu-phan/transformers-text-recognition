@@ -5,7 +5,6 @@ import wandb
 import string
 from tqdm import tqdm
 from loss import cal_performance
-from optim import SchedulerOptim
 from load_image_data import get_data
 from model import load_model, extract_feature
 from constants import MODEL_TYPE
@@ -25,6 +24,15 @@ def initialize_weights(m):
 def get_output_transformer(model, feature_model, inputs, targets, device):
     feature = extract_feature(feature_model, inputs, device)
     output, _ = model(feature, targets)
+    output_dim = output.shape[-1]
+    output = output.contiguous().view(-1, output_dim)
+    return output
+
+
+def get_output_transformer_trg_same_src(model, feature_model, inputs, device):
+    feature = feature_model(inputs)
+    feature = feature.view(feature.shape[0], -1).to(device)
+    output, _ = model(feature, feature)
     output_dim = output.shape[-1]
     output = output.contiguous().view(-1, output_dim)
     return output
@@ -57,6 +65,8 @@ def get_output(model, feature_model, inputs, targets, device):
         output = get_output_transformer_random_trg(model, feature_model, inputs, targets, device)
     elif model_type == MODEL_TYPE[2] or model_type == MODEL_TYPE[3]:
         output = get_output_transformer_no_trg(model, feature_model, inputs, device)
+    elif model_type == MODEL_TYPE[4]:
+        output = get_output_transformer_trg_same_src(model, feature_model, inputs, device)
     else:
         raise NotImplementedError
     return output
@@ -118,8 +128,8 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     _model, _feature_model = load_model(model_type, "vgg16", CONFIG, device)
     print(f"{'-' * 10}number of parameters = {count_parameters(_model)}{'-' * 10}\n")
-    model_name = f'{model_type}-train-feature.pt'
-    wandb_name = f'{model_type}-train-feature'
+    model_name = f'{model_type}.pt'
+    wandb_name = f'{model_type}'
     saved_model_dir = './checkpoints/'
     saved_model_path = saved_model_dir + model_name
     best_valid_acc = float('inf')*-1
@@ -179,7 +189,7 @@ def main():
 if __name__ == '__main__':
     CONFIG = {
         'OUTPUT_LEN': 20,
-        "LEARNING_RATE": 1e-7,
+        "LEARNING_RATE": 1e-4,
         "BATCH_SIZE": 32,
         "HID_DIM": 512,
         "ENC_LAYERS": 6,
@@ -193,5 +203,5 @@ if __name__ == '__main__':
         "N_EPOCHS": 1000000,
         "CLIP": 1
     }
-    model_type = MODEL_TYPE[3]
+    model_type = MODEL_TYPE[4]
     main()

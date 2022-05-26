@@ -285,3 +285,67 @@ class Seq2Seq(nn.Module):
         output, attention = self.decoder(trg, enc_src, trg_mask, src_mask)
 
         return output, attention
+
+
+class Seq2SeqTrgSameSrc(nn.Module):
+    def __init__(self,
+                 encoder,
+                 decoder,
+                 src_pad_idx,
+                 trg_pad_idx,
+                 output_dim,
+                 max_len,
+                 feature_shape_size,
+                 device):
+        super().__init__()
+        self.output_dim = output_dim
+        self.encoder = encoder
+        self.decoder = decoder
+        self.src_pad_idx = src_pad_idx
+        self.trg_pad_idx = trg_pad_idx
+        self.convert_src = nn.Linear(feature_shape_size, max_len).to(device)
+        self.convert_trg = nn.Linear(feature_shape_size, max_len).to(device)
+        self.device = device
+
+    def make_src_mask(self, src):
+        # src = [batch_size, src_len]
+
+        src_mask = (src != self.src_pad_idx).unsqueeze(1).unsqueeze(2)
+
+        return src_mask
+
+    def make_trg_mask(self, trg):
+        # trg = [batch_size, trg_len]
+        trg_pad_mask = (trg != self.trg_pad_idx).unsqueeze(1).unsqueeze(2)
+
+        trg_len = trg.shape[1]
+
+        trg_sub_mask = torch.tril(torch.ones((trg_len, trg_len), device=self.device)).bool()
+        # trg_sub_mask = [trg_len, trg_len]
+
+        trg_mask = trg_pad_mask * trg_sub_mask
+
+        return trg_mask
+
+    def forward(self, src, trg):
+        src = self.convert_src(src).to(self.device)
+        src -= src.min(1, keepdim=True)[0]
+        src /= src.max(1, keepdim=True)[0]
+        src *= 255
+        src = src.type(torch.LongTensor).to(self.device)
+
+        src_mask = self.make_src_mask(src)
+
+        trg = self.convert_trg(trg).to(self.device)
+        trg -= trg.min(1, keepdim=True)[0]
+        trg /= trg.max(1, keepdim=True)[0]
+        trg *= (self.output_dim - 1)
+        trg = trg.type(torch.LongTensor).to(self.device)
+
+        trg_mask = self.make_trg_mask(trg)
+
+        enc_src = self.encoder(src, src_mask)
+
+        output, attention = self.decoder(trg, enc_src, trg_mask, src_mask)
+
+        return output, attention
