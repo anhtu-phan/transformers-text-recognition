@@ -1,6 +1,6 @@
 import torchvision
 import torch
-from transformer import Encoder, Decoder, Seq2Seq, Seq2SeqTrgSameSrc
+from transformer import Encoder, Decoder, Seq2Seq, Seq2SeqTrgSameSrc, Seq2SeqWithAllFeature
 from transformer_without_trg import Decoder as DecoderNoTrg, Seq2Seq as Seq2SeqNoTrg, Seq2SeqWithoutDecoder
 from constants import MODEL_TYPE
 import string
@@ -34,6 +34,12 @@ def load_model(transformer_model_type, feature_model_type, config, device):
         dec = Decoder(len(string.printable) + 2, config['HID_DIM'], config['DEC_LAYERS'], config['DEC_HEADS'],
                       config['DEC_PF_DIM'], config['DEC_DROPOUT'], device, config['OUTPUT_LEN'])
         model = Seq2SeqTrgSameSrc(enc, dec, 0, 0, len(string.printable) + 2, config['OUTPUT_LEN'], 512*3*9, device).to(device)
+    elif transformer_model_type == MODEL_TYPE[5]:
+        enc = Encoder(256, config['HID_DIM'], config['ENC_LAYERS'], config['ENC_HEADS'], config['ENC_PF_DIM'],
+                      config['ENC_DROPOUT'], device, 3 * 9)
+        dec = Decoder(len(string.printable) + 2, config['HID_DIM'], config['DEC_LAYERS'], config['DEC_HEADS'],
+                      config['DEC_PF_DIM'], config['DEC_DROPOUT'], device, config['OUTPUT_LEN'])
+        model = Seq2SeqWithAllFeature(enc, dec, 0, 0, 3*9, 3*9*512, device).to(device)
     else:
         raise NotImplementedError
 
@@ -59,7 +65,7 @@ def predict_sequence(feature, model, device, max_len):
     with torch.no_grad():
         enc_src = model.encoder(feature, src_mask)
 
-    trg_indexes = [0]
+    trg_indexes = [1]
     for i in range(max_len):
         trg_tensor = torch.LongTensor(trg_indexes).unsqueeze(0).to(device)
         trg_mask = model.make_trg_mask(trg_tensor)
@@ -78,8 +84,8 @@ def predict_sequence(feature, model, device, max_len):
     vocab = string.printable
     output_tokens = []
     for i in trg_indexes:
-        if i > 0:
-            output_tokens.append(vocab[i - 1])
+        if i > 2:
+            output_tokens.append(vocab[i - 2])
     return output_tokens
 
 

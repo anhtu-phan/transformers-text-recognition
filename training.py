@@ -30,6 +30,15 @@ def get_output_transformer(model, feature_model, inputs, targets, device):
     return output
 
 
+def get_output_transformer_with_all_feature(model, feature_model, inputs, targets, device):
+    feature = feature_model(inputs)
+    feature = feature.view(feature.shape[0], -1).to(device)
+    output, _ = model(feature, targets)
+    output_dim = output.shape[-1]
+    output = output.contiguous().view(-1, output_dim)
+    return output
+
+
 def get_output_transformer_trg_same_src(model, feature_model, inputs, device):
     feature = feature_model(inputs)
     feature = feature.view(feature.shape[0], -1).to(device)
@@ -68,6 +77,8 @@ def get_output(model, feature_model, inputs, targets, device):
         output = get_output_transformer_no_trg(model, feature_model, inputs, device)
     elif model_type == MODEL_TYPE[4]:
         output = get_output_transformer_trg_same_src(model, feature_model, inputs, device)
+    elif model_type == MODEL_TYPE[5]:
+        output = get_output_transformer_with_all_feature(model, feature_model, inputs, targets, device)
     else:
         raise NotImplementedError
     return output

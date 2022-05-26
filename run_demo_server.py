@@ -69,7 +69,7 @@ if __name__ == '__main__':
     model_type = 'transformer'
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model, feature_model = load_model(model_type, 'vgg16', CONFIG, device)
-    model_path = f'./checkpoints/{model_type}_with_init_token.pt'
+    model_path = f'./checkpoints/{model_type}-no-train-feature.pt'
     checkpoint = torch.load(model_path, map_location=device)
     model.load_state_dict(checkpoint['state_dict'])
 
