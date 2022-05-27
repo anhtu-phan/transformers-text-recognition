@@ -5,6 +5,7 @@ from flask import Flask, request, render_template, redirect, url_for
 from model import load_model, predict, extract_feature, predict_sequence
 from torchvision import transforms
 import time
+import string
 from constants import MODEL_TYPE
 
 app = Flask(__name__)
@@ -29,25 +30,46 @@ def index_post():
     img = transform(img)
     img = img.unsqueeze(0)
 
+    results = []
     feature = feature_model(img)
-    feature = feature.view(feature.shape[0], -1).to(device)
-    src = model.convert_src(feature).to(device)
-    src -= src.min(1, keepdim=True)[0]
-    src /= src.max(1, keepdim=True)[0]
-    src *= 255
-    src = src.type(torch.LongTensor).to(device)
-    start_time = time.time()
-    output = predict_sequence(src, model, device, CONFIG['OUTPUT_LEN'])
-    predict_time = time.time() - start_time
-
-    # start_time = time.time()
-    # output2 = predict(feature, model2, device, CONFIG['OUTPUT_LEN'])
-    # predict_time2 = time.time() - start_time
-
-    result = [{'model_type': 'transformer', 'result': ''.join(output), 'time': f'{predict_time:.2f}'},
-              # {'model_type': 'transformer2', 'result': ''.join(output2), 'time': f'{predict_time2:.2f}'}
-             ]
-    return render_template('index.html', filename=file.filename, result=result)
+    for i_m, model in enumerate(models):
+        if i_m == 0:
+            continue
+        elif i_m == 1:
+            feature = extract_feature(feature_model, img, device)
+            start_time = time.time()
+            output = predict(feature, model, device, CONFIG['OUTPUT_LEN'])
+            predict_time = time.time() - start_time
+            results.append({'model_type': MODEL_TYPE[1], 'result': ''.join(output), 'time': f'{predict_time:.2f}'})
+        elif i_m == 2 or i_m == 3 or i_m == 4:
+            feature = feature.view(feature.shape[0], -1).to(device)
+            start_time = time.time()
+            if i_m == 4:
+                output = model(feature, feature)
+            else:
+                output = model(feature)
+            predict_time = time.time() - start_time
+            preds = torch.topk(output, CONFIG['OUTPUT_LEN'])[1]
+            vocab = string.printable
+            output = []
+            for i in preds:
+                if i > 0:
+                    output.append(vocab[i - 1])
+            results.append({'model_type': MODEL_TYPE[0], 'result': ''.join(output), 'time': f'{predict_time:.2f}'})
+        elif i_m == 5:
+            feature = feature.view(feature.shape[0], -1).to(device)
+            src = model.convert_src(feature).to(device)
+            src -= src.min(1, keepdim=True)[0]
+            src /= src.max(1, keepdim=True)[0]
+            src *= 255
+            src = src.type(torch.LongTensor).to(device)
+            start_time = time.time()
+            output = predict_sequence(src, model, device, CONFIG['OUTPUT_LEN'])
+            predict_time = time.time() - start_time
+            results.append({'model_type': MODEL_TYPE[0], 'result': ''.join(output), 'time': f'{predict_time:.2f}'})
+        else:
+            raise NotImplementedError
+    return render_template('index.html', filename=file.filename, result=results)
 
 
 @app.route('/display/<filename>')
@@ -74,17 +96,13 @@ if __name__ == '__main__':
         "N_EPOCHS": 1000000,
         "CLIP": 1
     }
-    model_type = MODEL_TYPE[5]
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model, feature_model = load_model(model_type, 'vgg16', CONFIG, device)
-    model_path = f'./checkpoints/{model_type}.pt'
-    checkpoint = torch.load(model_path, map_location=device)
-    model.load_state_dict(checkpoint['state_dict'])
-
-    # model_type = MODEL_TYPE[0]
-    # model2, _ = load_model(model_type, 'vgg16', CONFIG, device)
-    # model2_path = f'./checkpoints/{model_type}.pt'
-    # checkpoint2 = torch.load(model2_path, map_location=device)
-    # model2.load_state_dict(checkpoint2['state_dict'])
+    models = []
+    for model_type in MODEL_TYPE:
+        model, feature_model = load_model(model_type, 'vgg16', CONFIG, device)
+        model_path = f'./checkpoints/{model_type}.pt'
+        checkpoint = torch.load(model_path, map_location=device)
+        model.load_state_dict(checkpoint['state_dict'])
+        models.append(model)
 
     app.run('0.0.0.0', port=9595)

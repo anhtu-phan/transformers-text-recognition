@@ -7,6 +7,7 @@ from tqdm import tqdm
 from loss import cal_performance
 from load_image_data import get_data
 from model import load_model, extract_feature
+from optim import SchedulerOptim
 from constants import MODEL_TYPE
 
 vocab = string.printable
@@ -163,8 +164,8 @@ def main():
         wandb.init(name=wandb_name, project="transformer-text-recognition", config=CONFIG,
                    resume=False)
 
-    _optimizer = torch.optim.Adam(_model.parameters(), lr=CONFIG['LEARNING_RATE'],
-                                  betas=(0.9, 0.98), weight_decay=0.0001)
+    _optimizer = SchedulerOptim(torch.optim.Adam(_model.parameters(), lr=CONFIG['LEARNING_RATE'], betas=(0.9, 0.98),
+                                                 weight_decay=0.0001), 1, CONFIG['HID_DIM'], 4000, 5e-4, saved_epoch)
 
     wandb.watch(_model, log='all')
 
@@ -173,7 +174,7 @@ def main():
     for epoch in tqdm(range(saved_epoch, CONFIG['N_EPOCHS'])):
         logs = dict()
 
-        train_lr = _optimizer.param_groups[0]['lr']
+        train_lr = _optimizer.optimizer.param_groups[0]['lr']
         logs['train_lr'] = train_lr
         train_loss, train_loss_per_word, train_acc = train(_model, _feature_model, train_loader, _optimizer, device)
         val_loss, val_loss_per_word, val_acc = evaluate(_model, _feature_model, val_loader, device)
