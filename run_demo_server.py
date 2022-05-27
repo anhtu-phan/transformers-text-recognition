@@ -34,31 +34,29 @@ def index_post():
     feature = feature_model(img)
     for i_m, model in enumerate(models):
         if i_m == 0:
-            continue
-        elif i_m == 1:
-            feature = extract_feature(feature_model, img, device)
+            input_feature = extract_feature(feature_model, img, device)
             start_time = time.time()
-            output = predict(feature, model, device, CONFIG['OUTPUT_LEN'])
+            output = predict(input_feature, model, device, CONFIG['OUTPUT_LEN'])
             predict_time = time.time() - start_time
-            results.append({'model_type': MODEL_TYPE[1], 'result': ''.join(output), 'time': f'{predict_time:.2f}'})
-        elif i_m == 2 or i_m == 3 or i_m == 4:
-            feature = feature.view(feature.shape[0], -1).to(device)
+            results.append({'model_type': MODEL_TYPE[i_m+1], 'result': ''.join(output), 'time': f'{predict_time:.2f}'})
+        elif i_m == 1 or i_m == 2 or i_m == 3:
+            input_feature = feature.view(feature.shape[0], -1).to(device)
             start_time = time.time()
-            if i_m == 4:
-                output = model(feature, feature)
+            if i_m == 3:
+                output, _ = model(input_feature, input_feature)
             else:
-                output = model(feature)
+                output = model(input_feature)
             predict_time = time.time() - start_time
-            preds = torch.topk(output, CONFIG['OUTPUT_LEN'])[1]
+            preds = output.argmax(2)[0]
             vocab = string.printable
             output = []
             for i in preds:
                 if i > 0:
                     output.append(vocab[i - 1])
-            results.append({'model_type': MODEL_TYPE[0], 'result': ''.join(output), 'time': f'{predict_time:.2f}'})
-        elif i_m == 5:
-            feature = feature.view(feature.shape[0], -1).to(device)
-            src = model.convert_src(feature).to(device)
+            results.append({'model_type': MODEL_TYPE[i_m+1], 'result': ''.join(output), 'time': f'{predict_time:.2f}'})
+        elif i_m == 4:
+            input_feature = feature.view(feature.shape[0], -1).to(device)
+            src = model.convert_src(input_feature).to(device)
             src -= src.min(1, keepdim=True)[0]
             src /= src.max(1, keepdim=True)[0]
             src *= 255
@@ -98,10 +96,13 @@ if __name__ == '__main__':
     }
     device = "cuda" if torch.cuda.is_available() else "cpu"
     models = []
-    for model_type in MODEL_TYPE:
+    for i, model_type in enumerate(MODEL_TYPE):
+        if i == 0:
+            continue
         model, feature_model = load_model(model_type, 'vgg16', CONFIG, device)
         model_path = f'./checkpoints/{model_type}.pt'
         checkpoint = torch.load(model_path, map_location=device)
+        print(model_type)
         model.load_state_dict(checkpoint['state_dict'])
         models.append(model)
 
