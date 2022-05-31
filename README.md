@@ -1,6 +1,4 @@
 # transformers-text-recognition
-Apply transformers to text recognition problem
-
 <p align = "center">
 <img src = "https://i.imgur.com/Mq09gYR.png">
 </p>
