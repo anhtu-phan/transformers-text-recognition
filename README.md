@@ -2,7 +2,7 @@
 Apply transformers to text recognition problem
 
 <p align = "center">
-<img src = "https://imgur.com/oNpsSCE.png">
+<img src = "https://i.imgur.com/Mq09gYR.png">
 </p>
 <p align = "center">
 Architecture of transformer-text-recognition model
