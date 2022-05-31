@@ -3,6 +3,7 @@ import torch.nn as nn
 import os
 import wandb
 import string
+import argparse
 from tqdm import tqdm
 from loss import cal_performance
 from load_image_data import get_data
@@ -200,6 +201,11 @@ def main():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Transformer text recognition")
+    parser.add_argument("--model_type", type=int)
+    args = parser.parse_args()
+    model_type = MODEL_TYPE[args.model_type]
+
     CONFIG = {
         'OUTPUT_LEN': 20,
         "LEARNING_RATE": 1e-4,

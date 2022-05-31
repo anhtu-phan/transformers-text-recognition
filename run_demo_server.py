@@ -7,6 +7,7 @@ from torchvision import transforms
 import time
 import string
 from constants import MODEL_TYPE
+import argparse
 
 app = Flask(__name__)
 
@@ -76,6 +77,14 @@ def display_image(filename):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Transformer text recognition demo")
+    parser.add_argument("--port", default=9595)
+    parser.add_argument("--model_folder", default="./checkpoints")
+
+    args = parser.parse_args()
+    run_port = args.port
+    model_folder = args.model_folder
+
     if not os.path.exists('static/input_images'):
         os.makedirs('static/input_images')
     CONFIG = {
@@ -100,7 +109,7 @@ if __name__ == '__main__':
         if i == 0:
             continue
         model, feature_model = load_model(model_type, 'vgg16', CONFIG, device)
-        model_path = f'./checkpoints/{model_type}.pt'
+        model_path = f'{model_folder}/{model_type}.pt'
         checkpoint = torch.load(model_path, map_location=device)
         print(model_type)
         model.load_state_dict(checkpoint['state_dict'])
