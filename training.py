@@ -12,7 +12,6 @@ from optim import SchedulerOptim
 from constants import MODEL_TYPE
 
 vocab = string.printable
-model_type = MODEL_TYPE[5]
 
 
 def count_parameters(model):
@@ -70,7 +69,7 @@ def get_output_transformer_no_trg(model, feature_model, inputs, device):
     return output
 
 
-def get_output(model, feature_model, inputs, targets, device):
+def get_output(model, feature_model, inputs, targets, device, model_type):
     if model_type == MODEL_TYPE[0]:
         output = get_output_transformer(model, feature_model, inputs, targets, device)
     elif model_type == MODEL_TYPE[1]:
@@ -86,7 +85,7 @@ def get_output(model, feature_model, inputs, targets, device):
     return output
 
 
-def train(model, feature_model, data_loader, optimizer, device):
+def train(model, feature_model, data_loader, optimizer, device, model_type):
     model.train()
     epoch_loss, epoch_total_word, epoch_n_word_correct = 0, 0, 0
     with tqdm(total=len(data_loader)) as pbar:
@@ -96,7 +95,7 @@ def train(model, feature_model, data_loader, optimizer, device):
 
             optimizer.zero_grad()
 
-            output = get_output(model, feature_model, inputs, targets[:, :-1], device)
+            output = get_output(model, feature_model, inputs, targets[:, :-1], device, model_type)
             targets = targets[:, 1:].contiguous().view(-1)
 
             loss, n_correct, n_word = cal_performance(output, targets, 0, True, 0.1)
@@ -114,7 +113,7 @@ def train(model, feature_model, data_loader, optimizer, device):
     return epoch_loss / len(data_loader), loss_per_word, acc
 
 
-def evaluate(model, feature_model, data_loader, device):
+def evaluate(model, feature_model, data_loader, device, model_type):
     model.eval()
     epoch_loss, epoch_total_word, epoch_n_word_correct = 0, 0, 0
     with torch.no_grad():
@@ -123,7 +122,7 @@ def evaluate(model, feature_model, data_loader, device):
                 inputs = inputs.to(device)
                 targets = targets.to(device)
 
-                output = get_output(model, feature_model, inputs, targets[:, :-1], device)
+                output = get_output(model, feature_model, inputs, targets[:, :-1], device, model_type)
                 targets = targets[:, 1:].contiguous().view(-1)
 
                 loss, n_correct, n_word = cal_performance(output, targets, 0, True, 0.1)
@@ -138,7 +137,7 @@ def evaluate(model, feature_model, data_loader, device):
     return epoch_loss / len(data_loader), loss_per_word, acc
 
 
-def main():
+def main(model_type):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     _model, _feature_model = load_model(model_type, "vgg16", CONFIG, device)
     print(f"{'-' * 10}number of parameters = {count_parameters(_model)}{'-' * 10}\n")
@@ -177,8 +176,8 @@ def main():
 
         train_lr = _optimizer.optimizer.param_groups[0]['lr']
         logs['train_lr'] = train_lr
-        train_loss, train_loss_per_word, train_acc = train(_model, _feature_model, train_loader, _optimizer, device)
-        val_loss, val_loss_per_word, val_acc = evaluate(_model, _feature_model, val_loader, device)
+        train_loss, train_loss_per_word, train_acc = train(_model, _feature_model, train_loader, _optimizer, device, model_type)
+        val_loss, val_loss_per_word, val_acc = evaluate(_model, _feature_model, val_loader, device, model_type)
 
         logs['train_loss'] = train_loss
         logs['val_loss'] = val_loss
@@ -204,7 +203,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Transformer text recognition")
     parser.add_argument("--model_type", type=int)
     args = parser.parse_args()
-    model_type = MODEL_TYPE[args.model_type]
+    _model_type = MODEL_TYPE[args.model_type]
 
     CONFIG = {
         'OUTPUT_LEN': 20,
@@ -222,4 +221,4 @@ if __name__ == '__main__':
         "N_EPOCHS": 1000000,
         "CLIP": 1
     }
-    main()
+    main(_model_type)
